@@ -13,6 +13,8 @@ pip install praw
 ```
 pip install rich
 ```
+* The praw.ini is required and must be updated with your own free Reddit API and API Key. Details are in the ini.
+* The ./output folder is currently required.
 
 ## Usage from the help
 
@@ -59,7 +61,11 @@ Top get the top 10 for various stats in the date range of a specified subreddit:
 ```
 sub_stats_script.py -r Fromis -s 200 -c 200 -f 201201 -t 201231 -m 10 -e html
 ```
-This sets the subreddit to Fromis, will retrieve the last 200 submissions and up to 200 comments per submission, trim it to posts only between Dec 1 and Dec 31 of 2020, sorts the data and output the Top 10. It will also export the console output to an html file.
+This sets the subreddit to Fromis, will retrieve up to the last 200 submissions and up to 200 comments per submission, trim it to posts only between Dec 1 and Dec 31 of 2020, sorts the data and output the Top 10. It will also export the console output to an html file.
+
+The console and -export-console are using the [rich](https://github.com/willmcgugan/rich) module which adds color, formatting, tables, and the progress bars. Setting the -export-console to html will retain the console color and formatting (except the background) while txt won't retain the proper table structure.
+
+The -out file is formatted as markdown so it can be easily copied and pasted into an old.reddit comment or submission with little to no editing.
 
 Note: There are two Reddit API limitations: 1000 max results // Cannot Query by date range
 
