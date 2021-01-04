@@ -16,6 +16,8 @@ pip install rich
 * The praw.ini is required and must be updated with your own free Reddit API and API Key. Details are in the ini.
 * The ./output folder is currently required.
 
+Windows Terminal is recommended but not required. This should output color to cmd or other color terminals.
+
 ## Usage from the help
 
 sub_stats_script.py -h
