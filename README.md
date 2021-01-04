@@ -65,12 +65,25 @@ sub_stats_script.py -r Fromis -s 200 -c 200 -f 201201 -t 201231 -m 10 -e html
 ```
 This sets the subreddit to Fromis, will retrieve up to the last 200 submissions and up to 200 comments per submission, trim it to posts only between Dec 1 and Dec 31 of 2020, sorts the data and output the Top 10. It will also export the console output to an html file.
 
+![REPL](https://github.com/red-bw/sub_stats_script/blob/main/images/example1.png)
+
+An Example of the console tables.
+
+![REPL](https://github.com/red-bw/sub_stats_script/blob/main/images/example2.png)
+
+An Example of the mardown output file.
+
+![REPL](https://github.com/red-bw/sub_stats_script/blob/main/images/example3.png)
+
 The console and -export-console are using the [rich](https://github.com/willmcgugan/rich) module which adds color, formatting, tables, and the progress bars. Setting the -export-console to html will retain the console color and formatting (except the background) while txt won't retain the proper table structure.
 
 The -out file is formatted as markdown so it can be easily copied and pasted into an old.reddit comment or submission with little to no editing.
 
 Note: There are two Reddit API limitations: 1000 max results // Cannot Query by date range
 
-Limit 1: You can retrieve up to a maximum of 1000 submissions and 1000 comments per submission.
+* Limit 1: You can retrieve up to a maximum of 1000 submissions and 1000 comments per submission.
 
-Limit 2: Currently, this script only queries 'new' so requesting submissions means it can only go back 1000 posts. This script will retrieve the number of posts requested and trim them to the date range specified.
+* Limit 2: Currently, this script only queries 'new' so requesting submissions means it can only go back 1000 posts. This script will retrieve the number of posts requested and trim them to the date range specified.
+
+An example with logging turned on. It prints the time on the left and the script on the right.
+![REPL](https://github.com/red-bw/sub_stats_script/blob/main/images/example4.png)
