@@ -86,4 +86,5 @@ Note: There are two Reddit API limitations: 1000 max results // Cannot Query by 
 * Limit 2: Currently, this script only queries 'new' so requesting submissions means it can only go back 1000 posts. This script will retrieve the number of posts requested and trim them to the date range specified.
 
 An example with logging turned on. It prints the time on the left and the script on the right.
+
 ![REPL](https://github.com/red-bw/sub_stats_script/blob/main/images/example4.png)
