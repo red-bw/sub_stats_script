@@ -1,7 +1,5 @@
 #!/usr/bin/python3-64 -X utf8
 """
-Author  : u/Red_BW <https://www.reddit.com/user/Red_BW/>
-Origin  : 2021-01-02
 TODO: Implement the 3 sort functions, new, top, hot (everything is new)
 TODO: Add and read args from praw.ini but allow args to overwrite
 TODO: Query single submissions by subreddit and ID; retrieve comments from it
@@ -17,6 +15,7 @@ TODO: Add details on pre-trimmed posts and post trimmed posts
 """
 
 import argparse
+from collections import defaultdict as dd
 import datetime
 import praw
 from praw import exceptions
@@ -34,144 +33,29 @@ P_COLOR = '#a45ee5'
 R_COLOR = '#ff4500'
 
 
+__author__ = 'u/Red_BW <https://www.reddit.com/user/Red_BW/>'
+__license__ = 'MIT'
+__origin_date = '2021-01-02'
 __prog__ = 'sub_stats_script'
 __purpose__ = 'A Query Script for Reddit to extract various Data Points'
-__version__ = '0.9.9'
-__version_date__ = '2021-01-03'
+__version__ = '0.9.10'
+__version_date__ = '2021-01-05'
 __version_info__ = tuple(int(i) for i in __version__.split('.') if i.isdigit())
-# setting the console variable globally so it can be used everywhere
+# Initialize the console and rich console print globally
 console = Console()
-# Get and format today's date so it can be used everywhere
+rp = console.print
+# Get and format today's date globally
 today_raw = datetime.datetime.today()
 today = today_raw.strftime('%y%m%d')
 ver = f'{__prog__} {__version__} ({__version_date__})'
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-def get_args() -> argparse.Namespace:
-    """
-    See the help sections of each command.
-    :return: Return all arguments passed in at the CLI
-    """
-    parser = argparse.ArgumentParser(
-        prog=__prog__,
-        description=f'{ver}: {__purpose__}',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        epilog='Please ensure the praw.ini is updated with your own Reddit'
-               'API credentials.',
-        add_help=False)
-
-    r_args = parser.add_argument_group('required arguments')
-    o_args = parser.add_argument_group('optional arguments')
-    r_args.add_argument('-r',
-                        '--reddit',
-                        help='specify the subreddit',
-                        metavar='subreddit',
-                        type=str)
-    # o_args.add_argument('-sort',
-    #                     '--sort',
-    #                     help='sort by "new", "top", or "hot"',
-    #                     metavar='sort',
-    #                     type=str)
-    o_args.add_argument('-s',
-                        '--submissions',
-                        help='num of submissions to retrieve (max: 1000)',
-                        metavar='(1 to 1000)',
-                        type=int,
-                        default=100)
-    o_args.add_argument('-c',
-                        '--comments',
-                        help='max num of comments to retrieve per submission'
-                             ' (max 1000)',
-                        metavar='(1 to 1000)',
-                        type=int,
-                        required=False,
-                        default=0)
-    o_args.add_argument('-f',
-                        '--from-date',
-                        help='oldest post date as YYMMDD',
-                        metavar='YYMMDD',
-                        type=int,
-                        default=today)
-    o_args.add_argument('-t',
-                        '--to-date',
-                        help='newest post date as YYMMDD',
-                        metavar='YYMMDD',
-                        type=int,
-                        default=today)
-    o_args.add_argument('-m',
-                        '--max-top',
-                        help='maximum top entries per list to output',
-                        metavar='(1-1000)',
-                        type=int,
-                        default=10)
-    o_args.add_argument('-e',
-                        '--export-console',
-                        help='saves a copy of the console to ./output folder',
-                        choices=['txt', 'html'],
-                        required=False)
-    o_args.add_argument('-l',
-                        '--logging',
-                        help='switches output to logging format',
-                        action='store_true')
-    o_args.add_argument('-h',
-                        '--help',
-                        help='show this help message and exit',
-                        action='help')
-    o_args.add_argument('-out',
-                        metavar='<output_file>',
-                        help='specify the output filename (example: '
-                             './output/reddit_{subreddit}_{today}.txt)',
-                        required=False)
-    o_args.add_argument('-v',
-                        '--version',
-                        help='print the version and exit',
-                        action='version',
-                        version=f'{ver}')
-    args = parser.parse_args()
-    # This overrides an argument: parser.set_defaults(bar=42, baz='badger')
-    return args
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-def rp(var_to_print, rule: bool = False, style: str = MAIN_COLOR,
-       log_locals: bool = False):
-    """
-    rp = rich print()
-    All rich console print() functions in this script are redirected into this
-    function. This is to allow one command to print as "rp()". This function
-    then implements logging and rule if requested. It takes the rich variables.
-
-    :param log_locals: allows printing of local variables with logging
-    :param style: passes along the rich style parameter
-    :param var_to_print: (str, required) -- string to print
-    :param rule: (bool, optional, disabled) -- print a divider line
-    :return: None
-    """
-    args = get_args()
-    # if type(var_to_print) is str:
-    #     if 'reddit' in var_to_print:
-    #         var_to_print.replace('reddit', '[{R_COLOR}]reddit[/{R_COLOR}]')
-    #     if 'BlackPink' in var_to_print:
-    #         var_to_print.replace('BlackPink', '[black on #dbbcc3]BlackPink'
-    #                              '[/black on #dbbcc3]')
-    if rule:
-        console.rule(f'{var_to_print}', style=style)
-    # Enable logging
-    elif args.logging:
-        console.log(var_to_print, style=style, log_locals=log_locals)
-    # Standard rich printing without logging
-    else:
-        console.print(var_to_print, style=style)
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-def date_range_loop(post_lists: list, args: argparse.Namespace) -> list:
+def date_range_loop(post_lists: list) -> list:
     """
     Loop through the Submissions and discard everything not within the date
     range. Return them as a list.
     :param post_lists: All posts retrieved
-    :param args: argparse args
     :return: Trimmed List of only posts within the requested date range
     """
     rp(f'\nAnalyzing dates and attempting to clean the submissions list to the'
@@ -208,8 +92,7 @@ def date_range_loop(post_lists: list, args: argparse.Namespace) -> list:
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-def sub_submissions(r: praw.Reddit, args: argparse.Namespace)\
-        -> list:
+def sub_submissions(r: praw.Reddit) -> list:
     """
     This uses praw to query the specified subreddit to return a list of posts
     with various information. Each list contains: (YYMMDD, title, number of
@@ -217,12 +100,11 @@ def sub_submissions(r: praw.Reddit, args: argparse.Namespace)\
     submission ID (aka 'kopc8z' to reference this post), and YYYY-MM-DD).
 
     :param r: a praw.Reddit config object with the Reddit API credentials
-    :param args: argparse arguments
     :return: List of submissions
     """
     post_list = []
     rp("")
-    rp('Submissions', rule=True, style=f'{B_COLOR} bold')
+    console.rule('Submissions', style=f'{B_COLOR} bold')
     rp("")
     try:
         rp('Testing connection to reddit.\n')
@@ -282,66 +164,43 @@ def sub_submissions(r: praw.Reddit, args: argparse.Namespace)\
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-def sub_comments(r: praw.Reddit, post_lists: list, args: argparse.Namespace)\
-        -> tuple:
+def sub_comments(r: praw.Reddit, post_lists: list) -> tuple:
     """
     Use PRAW to grab all comments within the requested subreddit.
     :param r: a praw.Reddit config object with the Reddit API credentials
     :param post_lists: the trimmed posts of all Submissions
-    :param args: argparse arguments
     :return: a tuple of 6 lists
     """
     rp("")
-    rp('Comments', rule=True, style=f'{B_COLOR} bold')
+    console.rule('Comments', style=f'{B_COLOR} bold')
     rp("")
     try:
-        rp(f'Attempting to retrieve a maximum of {args.comments} comments each'
+        rp(f'Attempting to retrieve a maximum of {args.comments} comments each '
            f'from {len(post_lists)} submissions in the r/{args.reddit} sub.\n')
-        # local lists to build and return
-        sub_counts, com_counts, com_dates, tot_scores = {}, {}, {}, {}
-        sub_dates, com_awards = {}, {}
+        # local default dicts to build and return
+        com_awards, com_counts, com_dates = dd(int), dd(int), dd(int)
+        sub_counts, sub_dates, tot_scores = dd(int), dd(int), dd(int)
         # Count the number of comments iterating through
         count = 0
         # Iterate through each post
         for post_list in track(post_lists, total=len(post_lists)):
             # Fill tot_scores dict with submission scores
-            if str(post_list[7]) in tot_scores:
-                tot_scores[str(post_list[7])] += post_list[3]
-            else:
-                tot_scores[str(post_list[7])] = post_list[3]
+            tot_scores[str(post_list[7])] += post_list[3]
             # Fill sub_dates dict with submission dates
-            if post_list[9] in sub_dates:
-                sub_dates[post_list[9]] += 1
-            else:
-                sub_dates[post_list[9]] = 1
+            sub_dates[post_list[9]] += 1
             # Fill sub_count dict with count of author posts
-            if str(post_list[7]) in sub_counts:
-                sub_counts[str(post_list[7])] += 1
-            else:
-                sub_counts[str(post_list[7])] = 1
+            sub_counts[str(post_list[7])] += 1
             # open a reddit connection to the specified submission post
             submission = r.submission(id=post_list[8])
             submission.comments.replace_more(limit=args.comments)
             # Iterate through the comments list
             for com in submission.comments.list():
-                if str(com.author) in tot_scores:
-                    tot_scores[str(com.author)] += com.score
-                else:
-                    tot_scores[str(com.author)] = com.score
-                if str(com.author) in com_awards:
-                    com_awards[str(com.author)] += com.total_awards_received
-                else:
-                    com_awards[str(com.author)] = com.total_awards_received
-                if str(com.author) in com_counts:
-                    com_counts[str(com.author)] += 1
-                else:
-                    com_counts[str(com.author)] = 1
+                tot_scores[str(com.author)] += com.score
+                com_awards[str(com.author)] += com.total_awards_received
+                com_counts[str(com.author)] += 1
                 utc_date = datetime.datetime.utcfromtimestamp(com.created_utc)
                 date = utc_date.strftime('%Y-%m-%d')
-                if date in com_dates:
-                    com_dates[date] += 1
-                else:
-                    com_dates[date] = 1
+                com_dates[date] += 1
                 count += 1
         rp(f'\nSuccessfully retrieved and iterated through {count} comments.',
            style=G_COLOR)
@@ -372,24 +231,10 @@ def sub_comments(r: praw.Reddit, post_lists: list, args: argparse.Namespace)\
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-def args_print(args: argparse.Namespace):
-    pass
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 def main():
-    """
-    See the program purpose at the top of this script.
-    """
-    global console
-    # Calls and returns all commandline arguments.
-    args = get_args()
-    # Enable rich console export and traceback handler, 'install()', if allowed
-    if args.export_console:
-        console = Console(record=True)
-    install()
+
     rp("")
-    rp('Initialization', rule=True, style=f'{B_COLOR} bold')
+    console.rule('Initialization', style=f'{B_COLOR} bold')
     rp("")
     # Reddit API Limit warning and Trim
     if args.submissions > 1000:
@@ -405,8 +250,6 @@ def main():
 
     if not args.out:
         args.out = f'./output/reddit_{args.reddit}_{today}.txt'
-    # Print out the CLI Arguments to use
-    args_print(args)
 
     # Print the Program Name, Version, and Purpose
     rp(f'{ver}: {__purpose__}\n', style=O_COLOR)
@@ -441,9 +284,9 @@ def main():
     # retrieve a list of submissions
     submission_list, comments_list, submissions_date_list = [], [], []
     if args.submissions:
-        submission_list = sub_submissions(reddit, args)
+        submission_list = sub_submissions(reddit)
     # Trim the submissions to the date range specified
-    submissions_date_list = date_range_loop(submission_list, args)
+    submissions_date_list = date_range_loop(submission_list)
     total_comments, total_awards, sub_awards, com_awards = 0, 0, 0, 0
     # Create the t_awd_post_l
     awd_post_list = submissions_date_list[:]
@@ -461,7 +304,7 @@ def main():
     # Retrieve comments if requested
     if args.comments:
         rp('Attempting reddit connection for comments.')
-        f_tuple = sub_comments(reddit, submissions_date_list, args)
+        f_tuple = sub_comments(reddit, submissions_date_list)
         # Unpack the f_tuple
         com_counts_l, com_awards_l = f_tuple[0], f_tuple[5]
         com_dates_l, sub_counts_l = f_tuple[1], f_tuple[2]
@@ -497,7 +340,7 @@ def main():
 
     # Output the data
     rp("")
-    rp('Output File', rule=True, style=f'{B_COLOR} bold')
+    console.rule('Output File', style=f'{B_COLOR} bold')
     rp("")
     # Build Tables
     rp('Structuring Tables.')
@@ -569,7 +412,7 @@ def main():
     rp('\nSuccessfully completed writing to file.\n', style=G_COLOR)
     rp('Printing Tables')
     rp("")
-    rp('Output Tables', rule=True, style=f'{B_COLOR} bold')
+    console.rule('Output Tables', style=f'{B_COLOR} bold')
     rp("")
     rp(f'\tTotal Submissions:\t{total_submissions:,}'
        f'\n\tTotal Comments:\t\t{total_comments:,}\n\tTotal Awards:\t\t'
@@ -594,4 +437,89 @@ def main():
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(
+        prog=__prog__,
+        description=f'{ver}: {__purpose__}',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        epilog='Please ensure the praw.ini is updated with your own Reddit'
+               'API credentials.',
+        add_help=False)
+
+    r_args = parser.add_argument_group('required arguments')
+    o_args = parser.add_argument_group('optional arguments')
+    r_args.add_argument('-r',
+                        '--reddit',
+                        help='specify the subreddit',
+                        metavar='subreddit',
+                        type=str)
+    # o_args.add_argument('-sort',
+    #                     '--sort',
+    #                     help='sort by "new", "top", or "hot"',
+    #                     metavar='sort',
+    #                     type=str)
+    o_args.add_argument('-s',
+                        '--submissions',
+                        help='num of submissions to retrieve (max: 1000)',
+                        metavar='(1 to 1000)',
+                        type=int,
+                        default=100)
+    o_args.add_argument('-c',
+                        '--comments',
+                        help='max num of comments to retrieve per submission'
+                             ' (max 1000)',
+                        metavar='(1 to 1000)',
+                        type=int,
+                        required=False,
+                        default=0)
+    o_args.add_argument('-f',
+                        '--from-date',
+                        help='oldest post date as YYMMDD',
+                        metavar='YYMMDD',
+                        type=int,
+                        default=today)
+    o_args.add_argument('-t',
+                        '--to-date',
+                        help='newest post date as YYMMDD',
+                        metavar='YYMMDD',
+                        type=int,
+                        default=today)
+    o_args.add_argument('-m',
+                        '--max-top',
+                        help='maximum top entries per list to output',
+                        metavar='(1-1000)',
+                        type=int,
+                        default=10)
+    o_args.add_argument('-e',
+                        '--export-console',
+                        help='saves a copy of the console to ./output folder',
+                        choices=['txt', 'html'],
+                        required=False)
+    o_args.add_argument('-l',
+                        '--logging',
+                        help='switches output to logging format',
+                        action='store_true')
+    o_args.add_argument('-h',
+                        '--help',
+                        help='show this help message and exit',
+                        action='help')
+    o_args.add_argument('-out',
+                        metavar='<output_file>',
+                        help='specify the output filename (example: '
+                             './output/reddit_{subreddit}_{today}.txt)',
+                        required=False)
+    o_args.add_argument('--version',
+                        help='print the version and exit',
+                        action='version',
+                        version=f'{ver}')
+    # Define args globally to make it available elsewhere
+    args = parser.parse_args()
+    # This overrides an argument: parser.set_defaults(bar=42, baz='badger')
+    # Enable rich console export, traceback handler, and logging if requested
+    if args.export_console:
+        console = Console(record=True)
+    install()
+    if args.logging:
+        rp = console.log
+
     main()
